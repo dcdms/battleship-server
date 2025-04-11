@@ -65,13 +65,13 @@ impl Default for State {
 }
 
 #[derive(Serialize)]
-pub struct JoinedRoomEvent {
+pub struct RoomEnteredEvent {
   pub player: Player,
 }
 
 #[derive(Serialize)]
 #[serde(tag = "event", content = "data")]
 pub enum WebSocketSentEvent {
-  #[serde(rename = "room.joined")]
-  Joined(JoinedRoomEvent),
+  #[serde(rename = "room.entered")]
+  Entered(RoomEnteredEvent),
 }

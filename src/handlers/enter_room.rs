@@ -1,6 +1,5 @@
 use crate::{
-  JoinedRoomEvent, Player, State, WebSocketSentEvent,
-  utils::generate_random_ships,
+  utils::generate_random_ships, Player, RoomEnteredEvent, State, WebSocketSentEvent
 };
 use axum::{
   extract::{
@@ -32,7 +31,7 @@ pub async fn handle(
     .await
     .rooms
     .iter()
-    .any(|r| r.id == room_id_as_u32)
+    .any(|r| r.id == room_id_as_u32 && r.players.len() < 2)
   {
     return (StatusCode::NOT_FOUND, "room_not_found").into_response();
   }
@@ -53,8 +52,10 @@ async fn websocket(stream: WebSocket, state: Arc<RwLock<State>>, room_id: u32) {
     .find(|r| r.id == room_id)
     .unwrap();
 
+  let player_id = room.next_player_id;
+
   let player = Player {
-    id: room.next_player_id,
+    id: player_id,
     filled_board_cells: vec![],
     ships: generate_random_ships::execute(),
     tx: tx.clone(),
@@ -64,8 +65,8 @@ async fn websocket(stream: WebSocket, state: Arc<RwLock<State>>, room_id: u32) {
   room.next_player_id += 1;
 
   let _ = tx.send(Message::text(
-    serde_json::to_string::<WebSocketSentEvent>(&WebSocketSentEvent::Joined(
-      JoinedRoomEvent { player },
+    serde_json::to_string::<WebSocketSentEvent>(&WebSocketSentEvent::Entered(
+      RoomEnteredEvent { player },
     ))
     .unwrap(),
   ));
@@ -91,6 +92,9 @@ async fn websocket(stream: WebSocket, state: Arc<RwLock<State>>, room_id: u32) {
     _ = &mut send_task => recv_task.abort(),
     _ = &mut recv_task => send_task.abort(),
   }
+
+  let position = room.players.iter().position(|p| p.id == player_id).unwrap();
+  room.players.swap_remove(position);
 
   let _ = tx.send(Message::text("finished"));
 }
