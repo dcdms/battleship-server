@@ -1,5 +1,6 @@
 use crate::{
-  utils::generate_random_ships, Player, RoomEnteredEvent, State, WebSocketSentEvent
+  OpponentEnteredEvent, Player, RoomEnteredEvent, State, WebSocketSentEvent,
+  utils::generate_random_ships,
 };
 use axum::{
   extract::{
@@ -44,15 +45,14 @@ async fn websocket(stream: WebSocket, state: Arc<RwLock<State>>, room_id: u32) {
 
   let (tx, mut rx) = mpsc::unbounded_channel::<Message>();
 
-  let mut state_write_guard = state.write().await;
-
-  let room = state_write_guard
+  let player_id = state
+    .read()
+    .await
     .rooms
-    .iter_mut()
+    .iter()
     .find(|r| r.id == room_id)
-    .unwrap();
-
-  let player_id = room.next_player_id;
+    .unwrap()
+    .next_player_id;
 
   let player = Player {
     id: player_id,
@@ -61,15 +61,48 @@ async fn websocket(stream: WebSocket, state: Arc<RwLock<State>>, room_id: u32) {
     tx: tx.clone(),
   };
 
-  room.players.push(player.clone());
-  room.next_player_id += 1;
+  let room_player = player.clone();
 
-  let _ = tx.send(Message::text(
-    serde_json::to_string::<WebSocketSentEvent>(&WebSocketSentEvent::Entered(
-      RoomEnteredEvent { player },
-    ))
-    .unwrap(),
-  ));
+  {
+    let mut writer = state.write().await;
+
+    let room = writer.rooms.iter_mut().find(|r| r.id == room_id).unwrap();
+
+    room.players.push(room_player);
+    room.next_player_id += 1;
+  };
+
+  {
+    let reader = state.read().await;
+
+    let opponent = reader
+      .rooms
+      .iter()
+      .find(|r| r.id == room_id)
+      .unwrap()
+      .players
+      .iter()
+      .find(|p| p.id != player_id);
+
+    if let Some(opponent) = opponent {
+      let _ = opponent.tx.send(Message::text(
+        serde_json::to_string(&WebSocketSentEvent::OpponentEntered(
+          OpponentEnteredEvent {},
+        ))
+        .unwrap(),
+      ));
+    }
+
+    let _ = tx.send(Message::text(
+      serde_json::to_string::<WebSocketSentEvent>(
+        &WebSocketSentEvent::RoomEntered(RoomEnteredEvent {
+          ships: player.ships,
+          has_opponent: opponent.is_some(),
+        }),
+      )
+      .unwrap(),
+    ));
+  }
 
   let mut send_task = tokio::spawn(async move {
     while let Some(message) = rx.recv().await {
@@ -83,8 +116,7 @@ async fn websocket(stream: WebSocket, state: Arc<RwLock<State>>, room_id: u32) {
 
   let mut recv_task = tokio::spawn(async move {
     while let Some(Ok(Message::Text(text))) = receiver.next().await {
-      let _ = tx_clone
-        .send(Message::text(format!("message_from_recv_task: {}", text)));
+      let _ = tx_clone.send(Message::Text(text));
     }
   });
 
@@ -93,8 +125,17 @@ async fn websocket(stream: WebSocket, state: Arc<RwLock<State>>, room_id: u32) {
     _ = &mut recv_task => send_task.abort(),
   }
 
-  let position = room.players.iter().position(|p| p.id == player_id).unwrap();
-  room.players.swap_remove(position);
+  {
+    state
+      .write()
+      .await
+      .rooms
+      .iter_mut()
+      .find(|r| r.id == room_id)
+      .unwrap()
+      .players
+      .retain(|p| p.id != player_id);
+  };
 
   let _ = tx.send(Message::text("finished"));
 }

@@ -3,7 +3,7 @@ use serde::Serialize;
 pub mod handlers;
 pub mod utils;
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum Direction {
   Up,
@@ -23,14 +23,14 @@ impl rand::distr::Distribution<Direction> for rand::distr::StandardUniform {
   }
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Debug)]
 pub struct Ship {
   pub starts_at: u8,
   pub direction: Direction,
   pub length: u8,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Debug)]
 pub struct Player {
   pub id: u32,
   pub filled_board_cells: Vec<u8>,
@@ -40,7 +40,7 @@ pub struct Player {
   pub tx: tokio::sync::mpsc::UnboundedSender<axum::extract::ws::Message>,
 }
 
-#[derive(serde::Serialize, Clone)]
+#[derive(serde::Serialize, Clone, Debug)]
 pub struct Room {
   pub id: u32,
   pub players: Vec<Player>,
@@ -49,7 +49,7 @@ pub struct Room {
   pub next_player_id: u32,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Debug)]
 pub struct State {
   pub rooms: Vec<Room>,
   pub next_room_id: u32,
@@ -66,12 +66,19 @@ impl Default for State {
 
 #[derive(Serialize)]
 pub struct RoomEnteredEvent {
-  pub player: Player,
+  pub ships: Vec<Ship>,
+  pub has_opponent: bool,
 }
+
+#[derive(Serialize)]
+pub struct OpponentEnteredEvent {}
 
 #[derive(Serialize)]
 #[serde(tag = "event", content = "data")]
 pub enum WebSocketSentEvent {
   #[serde(rename = "room.entered")]
-  Entered(RoomEnteredEvent),
+  RoomEntered(RoomEnteredEvent),
+
+  #[serde(rename = "opponent.entered")]
+  OpponentEntered(OpponentEnteredEvent),
 }

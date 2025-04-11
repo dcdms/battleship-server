@@ -14,15 +14,17 @@ pub async fn handle(
 ) -> Json<CreateRoomResponse> {
   let room_id = state.read().await.next_room_id;
 
-  let mut write_guard = state.write().await;
+  {
+    let mut writer = state.write().await;
 
-  write_guard.next_room_id = room_id + 1;
+    writer.rooms.push(Room {
+      id: room_id,
+      next_player_id: 1,
+      players: vec![],
+    });
 
-  write_guard.rooms.push(Room {
-    id: room_id,
-    next_player_id: 1,
-    players: vec![],
-  });
+    writer.next_room_id += 1;
+  };
 
   Json(CreateRoomResponse { room_id })
 }

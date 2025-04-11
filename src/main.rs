@@ -23,7 +23,7 @@ async fn main() {
         .allow_methods(Any)
         .allow_headers(Any),
     )
-    .with_state(state.clone());
+    .with_state(state);
 
   let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
     .await
