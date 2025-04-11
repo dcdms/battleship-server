@@ -74,6 +74,9 @@ pub struct RoomEnteredEvent {
 pub struct OpponentEnteredEvent {}
 
 #[derive(Serialize)]
+pub struct OpponentLeftEvent {}
+
+#[derive(Serialize)]
 #[serde(tag = "event", content = "data")]
 pub enum WebSocketSentEvent {
   #[serde(rename = "room.entered")]
@@ -81,4 +84,7 @@ pub enum WebSocketSentEvent {
 
   #[serde(rename = "opponent.entered")]
   OpponentEntered(OpponentEnteredEvent),
+
+  #[serde(rename = "opponent.left")]
+  OpponentLeft(OpponentLeftEvent),
 }

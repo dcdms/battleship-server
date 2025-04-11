@@ -1,6 +1,6 @@
 use crate::{
-  OpponentEnteredEvent, Player, RoomEnteredEvent, State, WebSocketSentEvent,
-  utils::generate_random_ships,
+  OpponentEnteredEvent, OpponentLeftEvent, Player, RoomEnteredEvent, State,
+  WebSocketSentEvent, utils::generate_random_ships,
 };
 use axum::{
   extract::{
@@ -126,15 +126,25 @@ async fn websocket(stream: WebSocket, state: Arc<RwLock<State>>, room_id: u32) {
   }
 
   {
-    state
-      .write()
-      .await
+    let mut writer = state.write().await;
+
+    let players = &mut writer
       .rooms
       .iter_mut()
       .find(|r| r.id == room_id)
       .unwrap()
-      .players
-      .retain(|p| p.id != player_id);
+      .players;
+
+    if let Some(opponent) = players.iter().find(|p| p.id != player_id) {
+      let _ = opponent.tx.send(Message::text(
+        serde_json::to_string(&WebSocketSentEvent::OpponentLeft(
+          OpponentLeftEvent {},
+        ))
+        .unwrap(),
+      ));
+    }
+
+    players.retain(|p| p.id != player_id);
   };
 
   let _ = tx.send(Message::text("finished"));
