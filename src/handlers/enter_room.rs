@@ -1,6 +1,7 @@
 use crate::{
-  OpponentEnteredEvent, OpponentLeftEvent, Player, RoomEnteredEvent, State,
-  WebSocketSentEvent, utils::generate_random_ships,
+  Cell, CellHittedEvent, OpponentEnteredEvent, OpponentLeftEvent, Player,
+  RoomEnteredEvent, State, WebSocketReceivedEvent, WebSocketSentEvent,
+  utils::generate_random_board,
 };
 use axum::{
   extract::{
@@ -56,8 +57,7 @@ async fn websocket(stream: WebSocket, state: Arc<RwLock<State>>, room_id: u32) {
 
   let player = Player {
     id: player_id,
-    filled_board_cells: vec![],
-    ships: generate_random_ships::execute(),
+    board: generate_random_board::execute(),
     tx: tx.clone(),
   };
 
@@ -96,7 +96,7 @@ async fn websocket(stream: WebSocket, state: Arc<RwLock<State>>, room_id: u32) {
     let _ = tx.send(Message::text(
       serde_json::to_string::<WebSocketSentEvent>(
         &WebSocketSentEvent::RoomEntered(RoomEnteredEvent {
-          ships: player.ships,
+          board: player.board,
           has_opponent: opponent.is_some(),
         }),
       )
@@ -113,10 +113,57 @@ async fn websocket(stream: WebSocket, state: Arc<RwLock<State>>, room_id: u32) {
   });
 
   let tx_clone = tx.clone();
+  let state_clone = state.clone();
 
   let mut recv_task = tokio::spawn(async move {
     while let Some(Ok(Message::Text(text))) = receiver.next().await {
-      let _ = tx_clone.send(Message::Text(text));
+      let event =
+        match serde_json::from_str::<WebSocketReceivedEvent>(text.as_str()) {
+          Ok(event) => event,
+          Err(_) => continue,
+        };
+
+      match event {
+        WebSocketReceivedEvent::CellChosen(event) => {
+          println!("cell_chosen");
+
+          if event.index > 99 {
+            return;
+          }
+
+          let mut writer = state_clone.write().await;
+
+          let opponent = writer
+            .rooms
+            .iter_mut()
+            .find(|r| r.id == room_id)
+            .unwrap()
+            .players
+            .iter()
+            .find(|p| p.id != player_id)
+            .unwrap();
+
+          let _ = opponent.tx.send(Message::Text(text));
+
+          let mut cell = player.board[event.index as usize];
+
+          match cell {
+            Cell::Empty => cell = Cell::Hitted,
+            Cell::Ship => cell = Cell::HittedShip,
+            _ => return,
+          };
+
+          let _ = tx_clone.send(Message::text(
+            serde_json::to_string(&WebSocketSentEvent::CellHitted(
+              CellHittedEvent {
+                index: event.index,
+                hitted_ship: matches!(cell, Cell::Hitted | Cell::HittedShip),
+              },
+            ))
+            .unwrap(),
+          ));
+        }
+      }
     }
   });
 
@@ -146,6 +193,4 @@ async fn websocket(stream: WebSocket, state: Arc<RwLock<State>>, room_id: u32) {
 
     players.retain(|p| p.id != player_id);
   };
-
-  let _ = tx.send(Message::text("finished"));
 }
