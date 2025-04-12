@@ -5,8 +5,7 @@ use serde::{Deserialize, Serialize, Serializer, ser::SerializeTuple};
 pub mod handlers;
 pub mod utils;
 
-#[derive(Serialize, Clone, Debug)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug)]
 pub enum Direction {
   Up,
   Right,
@@ -26,7 +25,7 @@ impl rand::distr::Distribution<Direction> for rand::distr::StandardUniform {
 }
 
 #[derive(Serialize, Clone, Debug, Copy)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Cell {
   Empty,
   Hitted,
@@ -36,15 +35,34 @@ pub enum Cell {
 
 type Board = [Cell; 100];
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct Player {
   pub id: u32,
-
-  #[serde(serialize_with = "serialize_arr")]
   pub board: [Cell; 100],
-
-  #[serde(skip_serializing)]
   pub tx: tokio::sync::mpsc::UnboundedSender<axum::extract::ws::Message>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Room {
+  pub id: u32,
+  pub players: Vec<Player>,
+  pub next_player_id: u32,
+  pub turn: Option<u32>,
+}
+
+#[derive(Clone, Debug)]
+pub struct State {
+  pub rooms: Vec<Room>,
+  pub next_room_id: u32,
+}
+
+impl Default for State {
+  fn default() -> Self {
+    Self {
+      rooms: vec![],
+      next_room_id: 1,
+    }
+  }
 }
 
 fn serialize_arr<const N: usize, S, T>(
@@ -64,36 +82,13 @@ where
   ser_tuple.end()
 }
 
-#[derive(serde::Serialize, Clone, Debug)]
-pub struct Room {
-  pub id: u32,
-  pub players: Vec<Player>,
-
-  #[serde(skip_serializing)]
-  pub next_player_id: u32,
-}
-
-#[derive(Serialize, Clone, Debug)]
-pub struct State {
-  pub rooms: Vec<Room>,
-  pub next_room_id: u32,
-}
-
-impl Default for State {
-  fn default() -> Self {
-    Self {
-      rooms: vec![],
-      next_room_id: 1,
-    }
-  }
-}
-
 #[derive(Serialize)]
 pub struct RoomEnteredEvent {
   #[serde(serialize_with = "serialize_arr")]
   pub board: [Cell; 100],
-
+  
   pub has_opponent: bool,
+  pub has_turn: bool
 }
 
 #[derive(Serialize)]
@@ -103,9 +98,9 @@ pub struct OpponentEnteredEvent {}
 pub struct OpponentLeftEvent {}
 
 #[derive(Serialize)]
-pub struct CellHittedEvent {
+pub struct OpponentCellHittedEvent {
   pub index: u8,
-  pub hitted_ship: bool,
+  pub hitted_ship: bool
 }
 
 #[derive(Serialize)]
@@ -120,8 +115,8 @@ pub enum WebSocketSentEvent {
   #[serde(rename = "opponent.left")]
   OpponentLeft(OpponentLeftEvent),
 
-  #[serde(rename = "cell.hitted")]
-  CellHitted(CellHittedEvent),
+  #[serde(rename = "opponent.cell.hitted")]
+  OpponentCellHitted(OpponentCellHittedEvent)
 }
 
 #[derive(Deserialize)]

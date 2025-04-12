@@ -21,6 +21,7 @@ pub async fn handle(
       id: room_id,
       next_player_id: 1,
       players: vec![],
+      turn: None,
     });
 
     writer.next_room_id += 1;
