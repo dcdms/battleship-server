@@ -86,9 +86,9 @@ where
 pub struct RoomEnteredEvent {
   #[serde(serialize_with = "serialize_arr")]
   pub board: [Cell; 100],
-  
+
   pub has_opponent: bool,
-  pub has_turn: bool
+  pub has_turn: bool,
 }
 
 #[derive(Serialize)]
@@ -100,7 +100,7 @@ pub struct OpponentLeftEvent {}
 #[derive(Serialize)]
 pub struct OpponentCellHittedEvent {
   pub index: u8,
-  pub hitted_ship: bool
+  pub hitted_ship: bool,
 }
 
 #[derive(Serialize)]
@@ -116,7 +116,7 @@ pub enum WebSocketSentEvent {
   OpponentLeft(OpponentLeftEvent),
 
   #[serde(rename = "opponent.cell.hitted")]
-  OpponentCellHitted(OpponentCellHittedEvent)
+  OpponentCellHitted(OpponentCellHittedEvent),
 }
 
 #[derive(Deserialize)]

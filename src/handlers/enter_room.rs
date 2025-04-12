@@ -1,5 +1,7 @@
 use crate::{
-  utils::generate_random_board, Cell, OpponentCellHittedEvent, OpponentEnteredEvent, OpponentLeftEvent, Player, RoomEnteredEvent, State, WebSocketReceivedEvent, WebSocketSentEvent
+  Cell, OpponentCellHittedEvent, OpponentEnteredEvent, OpponentLeftEvent,
+  Player, RoomEnteredEvent, State, WebSocketReceivedEvent, WebSocketSentEvent,
+  utils::generate_random_board,
 };
 use axum::{
   extract::{
@@ -68,7 +70,7 @@ async fn websocket(stream: WebSocket, state: Arc<RwLock<State>>, room_id: u32) {
 
     room.players.push(room_player);
     room.next_player_id += 1;
-    
+
     if room.turn.is_none() {
       room.turn = Some(player_id)
     }
@@ -77,16 +79,9 @@ async fn websocket(stream: WebSocket, state: Arc<RwLock<State>>, room_id: u32) {
   {
     let reader = state.read().await;
 
-    let room = reader
-    .rooms
-    .iter()
-    .find(|r| r.id == room_id)
-    .unwrap();
+    let room = reader.rooms.iter().find(|r| r.id == room_id).unwrap();
 
-    let opponent = room
-      .players
-      .iter()
-      .find(|p| p.id != player_id);
+    let opponent = room.players.iter().find(|p| p.id != player_id);
 
     if let Some(opponent) = opponent {
       let _ = opponent.tx.send(Message::text(
@@ -153,7 +148,7 @@ async fn websocket(stream: WebSocket, state: Arc<RwLock<State>>, room_id: u32) {
           match cell {
             Cell::Empty => cell = Cell::Hitted,
             Cell::Ship => cell = Cell::HittedShip,
-            _ => {},
+            _ => {}
           };
 
           let _ = tx_clone.send(Message::text(
@@ -178,11 +173,7 @@ async fn websocket(stream: WebSocket, state: Arc<RwLock<State>>, room_id: u32) {
   {
     let mut writer = state.write().await;
 
-    let room = writer
-      .rooms
-      .iter_mut()
-      .find(|r| r.id == room_id)
-      .unwrap();
+    let room = writer.rooms.iter_mut().find(|r| r.id == room_id).unwrap();
 
     if let Some(opponent) = room.players.iter().find(|p| p.id != player_id) {
       let _ = opponent.tx.send(Message::text(
