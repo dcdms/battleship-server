@@ -38,7 +38,7 @@ type Board = [Cell; 100];
 #[derive(Clone, Debug)]
 pub struct Player {
   pub id: u32,
-  pub board: [Cell; 100],
+  pub board: Board,
   pub tx: tokio::sync::mpsc::UnboundedSender<axum::extract::ws::Message>,
 }
 
@@ -85,7 +85,7 @@ where
 #[derive(Serialize)]
 pub struct RoomEnteredEvent {
   #[serde(serialize_with = "serialize_arr")]
-  pub board: [Cell; 100],
+  pub board: Board,
 
   pub has_opponent: bool,
   pub has_turn: bool,
@@ -95,12 +95,22 @@ pub struct RoomEnteredEvent {
 pub struct OpponentEnteredEvent {}
 
 #[derive(Serialize)]
-pub struct OpponentLeftEvent {}
+pub struct OpponentLeftEvent {
+  #[serde(serialize_with = "serialize_arr")]
+  board: Board
+}
 
 #[derive(Serialize)]
 pub struct OpponentCellHittedEvent {
   pub index: u8,
-  pub hitted_ship: bool,
+  pub has_ship: bool,
+  pub won: bool,
+}
+
+#[derive(Serialize)]
+pub struct CellHittedEvent {
+  pub index: u8,
+  pub lost: bool,
 }
 
 #[derive(Serialize)]
@@ -117,6 +127,9 @@ pub enum WebSocketSentEvent {
 
   #[serde(rename = "opponent.cell.hitted")]
   OpponentCellHitted(OpponentCellHittedEvent),
+
+  #[serde(rename = "cell.hitted")]
+  CellHitted(CellHittedEvent),
 }
 
 #[derive(Deserialize)]
