@@ -1,8 +1,7 @@
 use crate::{
-  Cell, CellHittedEvent, OpponentCellHittedEvent, OpponentEnteredEvent,
-  OpponentLeftEvent, Player, RestartedEvent, RoomEnteredEvent,
-  State, WebSocketReceivedEvent, WebSocketSentEvent,
-  utils::generate_random_board,
+  Cell, CellShotResultEvent, OpponentCellShotResultEvent, OpponentEnteredEvent,
+  OpponentLeftEvent, Player, RestartedEvent, RoomEnteredEvent, State,
+  WebSocketReceivedEvent, WebSocketSentEvent, utils::generate_random_board,
 };
 use axum::{
   extract::{
@@ -125,7 +124,7 @@ async fn websocket(stream: WebSocket, state: Arc<RwLock<State>>, room_id: u32) {
         };
 
       match event {
-        WebSocketReceivedEvent::CellChosen(event) => {
+        WebSocketReceivedEvent::CellShot(event) => {
           if event.index > 99 {
             continue;
           }
@@ -156,8 +155,8 @@ async fn websocket(stream: WebSocket, state: Arc<RwLock<State>>, room_id: u32) {
             .all(|cell| !matches!(cell, Cell::Ship));
 
           let _ = tx_clone.send(Message::text(
-            serde_json::to_string(&WebSocketSentEvent::OpponentCellHitted(
-              OpponentCellHittedEvent {
+            serde_json::to_string(&WebSocketSentEvent::OpponentCellShotResult(
+              OpponentCellShotResultEvent {
                 index: event.index,
                 has_ship: matches!(
                   opponent.board[event.index as usize],
@@ -170,8 +169,8 @@ async fn websocket(stream: WebSocket, state: Arc<RwLock<State>>, room_id: u32) {
           ));
 
           let _ = opponent.tx.send(Message::text(
-            serde_json::to_string(&WebSocketSentEvent::CellHitted(
-              CellHittedEvent {
+            serde_json::to_string(&WebSocketSentEvent::CellShotResult(
+              CellShotResultEvent {
                 index: event.index,
                 lost: won,
               },
