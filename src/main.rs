@@ -10,11 +10,11 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tower_http::cors::{Any, CorsLayer};
 
-#[tokio::main]
-async fn main() {
+#[shuttle_runtime::main]
+async fn main() -> shuttle_axum::ShuttleAxum {
   let state = Arc::new(RwLock::new(State::default()));
 
-  let app = Router::new()
+  let router = Router::new()
     .route("/rooms/{room_id}", get(enter_room::handle))
     .route("/rooms", post(create_room::handle))
     .layer(
@@ -25,9 +25,5 @@ async fn main() {
     )
     .with_state(state);
 
-  let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
-    .await
-    .unwrap();
-
-  axum::serve(listener, app).await.unwrap();
+  Ok(router.into())
 }
