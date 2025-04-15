@@ -97,7 +97,7 @@ pub struct OpponentEnteredEvent {}
 #[derive(Serialize)]
 pub struct OpponentLeftEvent {
   #[serde(serialize_with = "serialize_arr")]
-  board: Board
+  board: Board,
 }
 
 #[derive(Serialize)]
@@ -111,6 +111,12 @@ pub struct OpponentCellHittedEvent {
 pub struct CellHittedEvent {
   pub index: u8,
   pub lost: bool,
+}
+
+#[derive(Serialize)]
+pub struct RestartedEvent {
+  #[serde(serialize_with = "serialize_arr")]
+  board: Board,
 }
 
 #[derive(Serialize)]
@@ -130,6 +136,9 @@ pub enum WebSocketSentEvent {
 
   #[serde(rename = "cell.hitted")]
   CellHitted(CellHittedEvent),
+
+  #[serde(rename = "restarted")]
+  Restarted(RestartedEvent),
 }
 
 #[derive(Deserialize)]
@@ -138,8 +147,14 @@ pub struct CellChosenEvent {
 }
 
 #[derive(Deserialize)]
+pub struct RestartEvent {}
+
+#[derive(Deserialize)]
 #[serde(tag = "event", content = "data")]
 pub enum WebSocketReceivedEvent {
   #[serde(rename = "cell.chosen")]
   CellChosen(CellChosenEvent),
+
+  #[serde(rename = "restart")]
+  Restart(RestartEvent),
 }
